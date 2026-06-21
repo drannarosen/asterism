@@ -1,5 +1,6 @@
 """Asterism public API."""
 
+from asterism.audit import AuditFinding, AuditReport, AuditSeverity, audit_pack
 from asterism.evidence import EvidenceItem, EvidencePack, InvariantMarker, OmittedMaterial
 from asterism.packer import PackOptions, ProfileDefinition, available_pack_profiles, pack_directory
 from asterism.provenance import FileProvenance
@@ -17,7 +18,11 @@ __all__ = [
     "ProfileDefinition",
     "RetrievalKeyError",
     "RetrievalStore",
+    "AuditFinding",
+    "AuditReport",
+    "AuditSeverity",
     "__version__",
     "available_pack_profiles",
+    "audit_pack",
     "pack_directory",
 ]

@@ -9,6 +9,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from asterism.audit import AuditReport, audit_pack
 from asterism.evidence import EvidencePack
 from asterism.packer import PackOptions, available_pack_profiles, pack_directory
 from asterism.retrieve import RetrievalKeyError, RetrievalStore
@@ -98,6 +99,32 @@ def inspect_command(
     console.print(table)
 
 
+@app.command("audit")
+def audit_command(
+    pack_json: Annotated[
+        Path,
+        typer.Argument(
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            resolve_path=True,
+            help="EvidencePack JSON file.",
+        ),
+    ],
+    store: Annotated[
+        Path,
+        typer.Option("--store", help="Retrieval store path."),
+    ] = Path(".asterism/store"),
+) -> None:
+    """Audit EvidencePack retrieval integrity and metadata consistency."""
+    pack = EvidencePack.model_validate_json(pack_json.read_text(encoding="utf-8"))
+    report = audit_pack(pack, store=RetrievalStore(store))
+    _render_audit_report(report)
+    if not report.passed:
+        raise typer.Exit(code=1)
+
+
 @app.command("retrieve")
 def retrieve_command(
     key: Annotated[str, typer.Argument(help="Retrieval key, such as sha256:<digest>.")],
@@ -125,6 +152,34 @@ def retrieve_command(
 def _count_label(count: int, singular: str) -> str:
     suffix = singular if count == 1 else f"{singular}s"
     return f"{count} {suffix}"
+
+
+def _render_audit_report(report: AuditReport) -> None:
+    status = "passed" if report.passed else "failed"
+    console.print(
+        f"Audit [bold]{status}[/bold]: "
+        f"{report.checked_items} items, "
+        f"{report.checked_retrieval_keys} retrieval keys, "
+        f"{report.error_count} errors, "
+        f"{report.warning_count} warnings."
+    )
+    if not report.findings:
+        return
+    table = Table(title="Audit Findings")
+    table.add_column("Severity", no_wrap=True)
+    table.add_column("Code", no_wrap=True)
+    table.add_column("Path")
+    table.add_column("Retrieval key", overflow="fold")
+    table.add_column("Message")
+    for finding in report.findings:
+        table.add_row(
+            finding.severity.value,
+            finding.code,
+            finding.path or "",
+            finding.retrieval_key or "",
+            finding.message,
+        )
+    console.print(table)
 
 
 @app.command("profiles")

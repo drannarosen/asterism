@@ -51,6 +51,7 @@ For CLI or packing changes, also run:
 uv run --extra dev python -m asterism.cli --help
 uv run --extra dev asterism pack . --out evidence-pack.md --json evidence-pack.json
 uv run --extra dev asterism inspect evidence-pack.json
+uv run --extra dev asterism audit evidence-pack.json --store .asterism/store
 ```
 
 Generated `evidence-pack.md`, `evidence-pack.json`, and `.asterism/` are ignored and should stay untracked.

@@ -34,6 +34,12 @@ Inspect a JSON pack:
 uv run asterism inspect evidence-pack.json
 ```
 
+Audit schema-valid pack metadata and retrieval integrity:
+
+```bash
+uv run asterism audit evidence-pack.json --store .asterism/store
+```
+
 Retrieve exact original content by key:
 
 ```bash

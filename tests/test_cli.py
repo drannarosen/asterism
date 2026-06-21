@@ -64,3 +64,26 @@ def test_pack_inspect_and_retrieve_cli(tmp_path: Path) -> None:
     retrieve = runner.invoke(app, ["retrieve", key, "--store", str(store)])
     assert retrieve.exit_code == 0
     assert retrieve.output == content
+
+
+def test_audit_cli_reports_success_and_failure(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "notes.md").write_text("api contract\n", encoding="utf-8")
+    store = tmp_path / "store"
+    json_out = tmp_path / "pack.json"
+    runner = CliRunner()
+
+    pack_result = runner.invoke(
+        app,
+        ["pack", str(root), "--json", str(json_out), "--store", str(store)],
+    )
+    assert pack_result.exit_code == 0
+
+    success = runner.invoke(app, ["audit", str(json_out), "--store", str(store)])
+    assert success.exit_code == 0
+    assert "passed" in success.output
+
+    failure = runner.invoke(app, ["audit", str(json_out), "--store", str(tmp_path / "missing")])
+    assert failure.exit_code == 1
+    assert "missing_retrieval_blob" in failure.output
