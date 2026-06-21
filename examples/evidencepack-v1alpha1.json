@@ -39,6 +39,7 @@
     }
   ],
   "omitted_material": [],
+  "profile": "repo",
   "schema_version": "asterism.evidencepack.v1alpha1",
   "source_scope": "fixture://minimal",
   "task_intent": "Document the minimal v1alpha1 EvidencePack shape."

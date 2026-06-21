@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from asterism.evidence import EvidencePack
-from asterism.packer import PackOptions, pack_directory
+from asterism.packer import PackOptions, available_pack_profiles, pack_directory
 from asterism.retrieve import RetrievalKeyError, RetrievalStore
 
 app = typer.Typer(
@@ -50,9 +50,19 @@ def pack_command(
         str | None,
         typer.Option("--task", help="Task intent to record in the EvidencePack."),
     ] = None,
+    profile: Annotated[
+        str,
+        typer.Option(
+            "--profile",
+            help="Deterministic pack profile: repo, debug, review, or handoff.",
+        ),
+    ] = "repo",
 ) -> None:
     """Build an EvidencePack from a local path."""
-    options = PackOptions(store_path=store, task_intent=task)
+    try:
+        options = PackOptions(profile=profile, store_path=store, task_intent=task)  # type: ignore[arg-type]
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="profile") from exc
     pack = pack_directory(path, options=options)
     pack.write_markdown(out)
     if json_path:
@@ -80,6 +90,7 @@ def inspect_command(
     table.add_column("Field")
     table.add_column("Value")
     table.add_row("Source scope", pack.source_scope)
+    table.add_row("Profile", pack.profile)
     table.add_row("Items", _count_label(len(pack.items), "item"))
     table.add_row("Retrieval keys", _count_label(len(pack.retrieval_keys), "retrieval key"))
     table.add_row("Omitted material", _count_label(len(pack.omitted_material), "record"))
@@ -114,6 +125,26 @@ def retrieve_command(
 def _count_label(count: int, singular: str) -> str:
     suffix = singular if count == 1 else f"{singular}s"
     return f"{count} {suffix}"
+
+
+@app.command("profiles")
+def profiles_command() -> None:
+    """List deterministic pack profiles."""
+    table = Table(title="Asterism Pack Profiles")
+    table.add_column("Name")
+    table.add_column("Chunk lines", justify="right")
+    table.add_column("Max bytes", justify="right")
+    table.add_column("Emphasized invariants")
+    table.add_column("Description")
+    for profile in available_pack_profiles():
+        table.add_row(
+            profile.name,
+            str(profile.chunk_line_count),
+            str(profile.max_file_bytes),
+            ", ".join(profile.emphasized_invariants),
+            profile.description,
+        )
+    console.print(table)
 
 
 if __name__ == "__main__":

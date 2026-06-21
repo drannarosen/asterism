@@ -125,5 +125,6 @@ def test_v1alpha1_fixture_validates_and_serializes_canonically() -> None:
     pack = EvidencePack.model_validate_json(fixture.read_text(encoding="utf-8"))
 
     assert pack.schema_version == "asterism.evidencepack.v1alpha1"
+    assert pack.profile == "repo"
     assert pack.items[0].provenance.sha256 == EXAMPLE_DIGEST
     assert json.loads(pack.to_canonical_json()) == json.loads(fixture.read_text(encoding="utf-8"))

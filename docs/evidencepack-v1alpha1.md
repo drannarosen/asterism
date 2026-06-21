@@ -26,6 +26,7 @@ An EvidencePack JSON object has these fields:
 |:--|:--|:--|:--|
 | `schema_version` | string literal | yes | Must be `asterism.evidencepack.v1alpha1`. |
 | `id` | string | yes | Stable-ish pack identifier generated from packed source content. |
+| `profile` | string | yes | Deterministic pack profile used to construct the pack. Defaults to `repo`. |
 | `source_scope` | string | yes | Source scope label or path that was packed. |
 | `task_intent` | string or null | yes | Optional user intent for the pack. |
 | `created_at` | RFC 3339 datetime | yes | Pack creation timestamp. |
@@ -33,7 +34,9 @@ An EvidencePack JSON object has these fields:
 | `omitted_material` | array | yes | Explicit records for skipped or omitted material. |
 | `audit_status` | string | yes | Current audit status. MVP packs default to `draft`. |
 
-`id` and `source_scope` must not be empty.
+`id`, `profile`, and `source_scope` must not be empty.
+
+Current profile names are `repo`, `debug`, `review`, and `handoff`.
 
 ## Evidence Items
 

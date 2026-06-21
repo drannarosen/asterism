@@ -19,7 +19,13 @@ uv sync --extra dev
 Build Markdown and JSON packs from a local directory:
 
 ```bash
-uv run asterism pack . --out evidence-pack.md --json evidence-pack.json
+uv run asterism pack . --profile repo --out evidence-pack.md --json evidence-pack.json
+```
+
+List the deterministic profile presets:
+
+```bash
+uv run asterism profiles
 ```
 
 Inspect a JSON pack:
@@ -58,6 +64,10 @@ text = store.retrieve_text(pack.items[0].provenance.retrieval_key)
 The MVP focuses on deterministic local directory packing, file provenance,
 content hashing, exact retrieval, and Markdown/JSON output. It intentionally
 does not include ML compression or Rust acceleration yet.
+
+Pack profiles currently include `repo`, `debug`, `review`, and `handoff`. They
+set deterministic chunk sizes, max file sizes, generated-output ignores, and
+document which invariant families the profile is meant to emphasize.
 
 Files can be represented as whole-file records or deterministic line chunks.
 Each record carries line spans, byte spans, chunk index/count, SHA-256 digest,

@@ -15,6 +15,8 @@ from asterism.evidence import EvidenceItem, EvidencePack, InvariantMarker, Omitt
 from asterism.provenance import FileProvenance
 from asterism.retrieve import RetrievalStore, sha256_digest
 
+PackProfile = Literal["repo", "debug", "review", "handoff"]
+
 DEFAULT_IGNORE_PATTERNS = (
     ".git",
     ".git/",
@@ -36,16 +38,98 @@ _DOI_RE = re.compile(r"\b(doi:|10\.\d{4,9}/|arxiv:)\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
+class ProfileDefinition:
+    """Deterministic policy preset for pack construction."""
+
+    name: PackProfile
+    description: str
+    chunk_line_count: int
+    max_file_bytes: int
+    extra_ignore_patterns: tuple[str, ...] = ()
+    emphasized_invariants: tuple[str, ...] = ()
+
+
+PACK_PROFILES: dict[PackProfile, ProfileDefinition] = {
+    "repo": ProfileDefinition(
+        name="repo",
+        description="General repository context with balanced chunking.",
+        chunk_line_count=200,
+        max_file_bytes=1_000_000,
+        emphasized_invariants=("api_contract", "citation", "equation", "units"),
+    ),
+    "debug": ProfileDefinition(
+        name="debug",
+        description="Finer chunks for failures, stack traces, tolerances, and local debugging.",
+        chunk_line_count=80,
+        max_file_bytes=2_000_000,
+        emphasized_invariants=("failing_test", "tolerance", "api_contract", "likelihood"),
+    ),
+    "review": ProfileDefinition(
+        name="review",
+        description="Review-oriented context that skips common generated reports.",
+        chunk_line_count=120,
+        max_file_bytes=1_000_000,
+        extra_ignore_patterns=(
+            ".coverage",
+            "coverage.xml",
+            "htmlcov/",
+            "junit.xml",
+            "test-results/",
+        ),
+        emphasized_invariants=("api_contract", "citation", "equation", "units", "tolerance"),
+    ),
+    "handoff": ProfileDefinition(
+        name="handoff",
+        description="Coarser session handoff context with generated report noise suppressed.",
+        chunk_line_count=160,
+        max_file_bytes=750_000,
+        extra_ignore_patterns=(
+            ".coverage",
+            "coverage.xml",
+            "htmlcov/",
+            "junit.xml",
+            "test-results/",
+        ),
+        emphasized_invariants=("api_contract", "citation", "equation", "units", "failing_test"),
+    ),
+}
+
+
+@dataclass(frozen=True)
 class PackOptions:
     """Options for local directory packing."""
 
-    profile: str = "repo"
+    profile: PackProfile = "repo"
     task_intent: str | None = None
     store_path: Path | str | None = None
     include_git: bool = True
-    max_file_bytes: int = 1_000_000
-    chunk_line_count: int = 200
+    max_file_bytes: int | None = None
+    chunk_line_count: int | None = None
     extra_ignore_patterns: tuple[str, ...] = field(default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        if self.profile not in PACK_PROFILES:
+            raise ValueError(f"Unknown pack profile: {self.profile}")
+        if self.max_file_bytes is not None and self.max_file_bytes < 1:
+            raise ValueError("max_file_bytes must be at least 1")
+        if self.chunk_line_count is not None and self.chunk_line_count < 1:
+            raise ValueError("chunk_line_count must be at least 1")
+
+
+@dataclass(frozen=True)
+class _ResolvedPackOptions:
+    profile: ProfileDefinition
+    task_intent: str | None
+    store_path: Path | str | None
+    include_git: bool
+    max_file_bytes: int
+    chunk_line_count: int
+    extra_ignore_patterns: tuple[str, ...]
+
+
+def available_pack_profiles() -> tuple[ProfileDefinition, ...]:
+    """Return supported deterministic pack profiles."""
+    return tuple(PACK_PROFILES.values())
 
 
 def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> EvidencePack:
@@ -56,13 +140,13 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
     if not source_root.is_dir():
         raise NotADirectoryError(source_root)
 
-    options = options or PackOptions()
+    resolved = _resolve_options(options or PackOptions())
     store_path = (
-        Path(options.store_path) if options.store_path else source_root / ".asterism" / "store"
+        Path(resolved.store_path) if resolved.store_path else source_root / ".asterism" / "store"
     )
     store = RetrievalStore(store_path)
-    ignore_spec = _build_ignore_spec(source_root, options)
-    git_commit = _git_commit(source_root) if options.include_git else None
+    ignore_spec = _build_ignore_spec(source_root, resolved)
+    git_commit = _git_commit(source_root) if resolved.include_git else None
 
     items: list[EvidenceItem] = []
     omitted: list[OmittedMaterial] = []
@@ -79,7 +163,7 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
             )
             continue
 
-        if len(content_bytes) > options.max_file_bytes:
+        if len(content_bytes) > resolved.max_file_bytes:
             omitted.append(
                 OmittedMaterial(reason="File exceeds max_file_bytes", source_path=relative_path)
             )
@@ -93,7 +177,7 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
             )
             continue
 
-        chunks = _line_chunks(content, chunk_line_count=options.chunk_line_count)
+        chunks = _line_chunks(content, chunk_line_count=resolved.chunk_line_count)
         chunk_count = len(chunks)
         for chunk_index, chunk in enumerate(chunks):
             chunk_bytes = chunk.text.encode("utf-8")
@@ -132,11 +216,12 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
                 )
             )
 
-    pack_id = _pack_id(source_root, items)
+    pack_id = _pack_id(source_root, items, profile=resolved.profile.name)
     return EvidencePack(
         id=pack_id,
+        profile=resolved.profile.name,
         source_scope=str(source_root),
-        task_intent=options.task_intent,
+        task_intent=resolved.task_intent,
         items=items,
         omitted_material=omitted,
     )
@@ -178,7 +263,20 @@ def _invariant_kinds(line: str, lowered: str) -> list[str]:
     return kinds
 
 
-def _build_ignore_spec(root: Path, options: PackOptions) -> GitIgnoreSpec:
+def _resolve_options(options: PackOptions) -> _ResolvedPackOptions:
+    profile = PACK_PROFILES[options.profile]
+    return _ResolvedPackOptions(
+        profile=profile,
+        task_intent=options.task_intent,
+        store_path=options.store_path,
+        include_git=options.include_git,
+        max_file_bytes=options.max_file_bytes or profile.max_file_bytes,
+        chunk_line_count=options.chunk_line_count or profile.chunk_line_count,
+        extra_ignore_patterns=profile.extra_ignore_patterns + options.extra_ignore_patterns,
+    )
+
+
+def _build_ignore_spec(root: Path, options: _ResolvedPackOptions) -> GitIgnoreSpec:
     patterns = list(DEFAULT_IGNORE_PATTERNS)
     gitignore = root / ".gitignore"
     if gitignore.exists():
@@ -305,9 +403,9 @@ def _item_title(relative_path: str, line_start: int, line_end: int | None, chunk
     return f"{relative_path}#L{line_start}-L{line_end}"
 
 
-def _pack_id(root: Path, items: list[EvidenceItem]) -> str:
+def _pack_id(root: Path, items: list[EvidenceItem], *, profile: PackProfile) -> str:
     fingerprint_input = "\n".join(
-        f"{item.provenance.path}:{item.provenance.chunk_index}:{item.provenance.sha256}"
+        f"{profile}:{item.provenance.path}:{item.provenance.chunk_index}:{item.provenance.sha256}"
         for item in items
     ).encode("utf-8")
     fingerprint = sha256_digest(fingerprint_input)[:12]

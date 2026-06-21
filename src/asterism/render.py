@@ -11,6 +11,7 @@ def render_markdown(pack: EvidencePack) -> str:
         f"# EvidencePack: {pack.id}",
         "",
         f"- Schema: `{pack.schema_version}`",
+        f"- Profile: `{pack.profile}`",
         f"- Source scope: `{pack.source_scope}`",
         f"- Audit status: `{pack.audit_status}`",
         f"- Items: {len(pack.items)}",

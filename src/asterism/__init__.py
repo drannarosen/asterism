@@ -1,7 +1,7 @@
 """Asterism public API."""
 
 from asterism.evidence import EvidenceItem, EvidencePack, InvariantMarker, OmittedMaterial
-from asterism.packer import PackOptions, pack_directory
+from asterism.packer import PackOptions, ProfileDefinition, available_pack_profiles, pack_directory
 from asterism.provenance import FileProvenance
 from asterism.retrieve import RetrievalKeyError, RetrievalStore
 
@@ -14,8 +14,10 @@ __all__ = [
     "InvariantMarker",
     "OmittedMaterial",
     "PackOptions",
+    "ProfileDefinition",
     "RetrievalKeyError",
     "RetrievalStore",
     "__version__",
+    "available_pack_profiles",
     "pack_directory",
 ]

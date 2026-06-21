@@ -89,6 +89,7 @@ class EvidencePack(BaseModel):
 
     schema_version: Literal["asterism.evidencepack.v1alpha1"] = SCHEMA_VERSION
     id: str
+    profile: str = "repo"
     source_scope: str
     task_intent: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -96,7 +97,7 @@ class EvidencePack(BaseModel):
     omitted_material: list[OmittedMaterial] = Field(default_factory=list)
     audit_status: str = "draft"
 
-    @field_validator("id", "source_scope")
+    @field_validator("id", "profile", "source_scope")
     @classmethod
     def _validate_non_empty(cls, value: str) -> str:
         if not value.strip():

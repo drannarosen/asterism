@@ -89,3 +89,47 @@ def test_pack_directory_skips_ignored_paths(tmp_path: Path) -> None:
 
     assert [item.provenance.path for item in pack.items] == ["keep.md"]
     assert any(marker.kind == "likelihood" for marker in pack.items[0].invariants)
+
+
+def test_pack_directory_applies_debug_profile_defaults(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    content = "".join(f"line {number}\n" for number in range(1, 122))
+    (root / "debug.log").write_text(content, encoding="utf-8")
+
+    pack = pack_directory(
+        root,
+        options=PackOptions(profile="debug", store_path=root / ".asterism" / "store"),
+    )
+
+    assert pack.profile == "debug"
+    assert len(pack.items) == 2
+    assert [item.provenance.line_start for item in pack.items] == [1, 81]
+    assert [item.provenance.line_end for item in pack.items] == [80, 121]
+
+
+def test_pack_directory_profile_can_ignore_generated_outputs(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "notes.md").write_text("api contract\n", encoding="utf-8")
+    (root / "coverage.xml").write_text("<coverage />\n", encoding="utf-8")
+
+    pack = pack_directory(
+        root,
+        options=PackOptions(profile="review", store_path=root / ".asterism" / "store"),
+    )
+
+    assert pack.profile == "review"
+    assert [item.provenance.path for item in pack.items] == ["notes.md"]
+
+
+def test_pack_directory_rejects_unknown_profile(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+
+    try:
+        PackOptions(profile="surprise")  # type: ignore[arg-type]
+    except ValueError as exc:
+        assert "Unknown pack profile" in str(exc)
+    else:
+        raise AssertionError("PackOptions should reject unknown profiles")

@@ -12,6 +12,15 @@ def test_cli_help_renders() -> None:
     assert "pack" in result.output
 
 
+def test_cli_profiles_renders_supported_profiles() -> None:
+    result = CliRunner().invoke(app, ["profiles"])
+    assert result.exit_code == 0
+    assert "repo" in result.output
+    assert "debug" in result.output
+    assert "review" in result.output
+    assert "handoff" in result.output
+
+
 def test_pack_inspect_and_retrieve_cli(tmp_path: Path) -> None:
     root = tmp_path / "project"
     root.mkdir()
@@ -33,6 +42,8 @@ def test_pack_inspect_and_retrieve_cli(tmp_path: Path) -> None:
             str(json_out),
             "--store",
             str(store),
+            "--profile",
+            "debug",
         ],
     )
 
@@ -42,6 +53,7 @@ def test_pack_inspect_and_retrieve_cli(tmp_path: Path) -> None:
     assert "# EvidencePack:" in md_out.read_text(encoding="utf-8")
 
     pack = EvidencePack.model_validate_json(json_out.read_text(encoding="utf-8"))
+    assert pack.profile == "debug"
     key = pack.items[0].provenance.retrieval_key
 
     inspect = runner.invoke(app, ["inspect", str(json_out)])
