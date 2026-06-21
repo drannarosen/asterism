@@ -5,6 +5,7 @@ from asterism.evidence import EvidenceItem, EvidencePack, InvariantMarker, Omitt
 from asterism.packer import PackOptions, ProfileDefinition, available_pack_profiles, pack_directory
 from asterism.provenance import FileProvenance
 from asterism.retrieve import RetrievalKeyError, RetrievalStore
+from asterism.search import SearchHit, search_pack
 
 __version__ = "0.1.0"
 
@@ -18,6 +19,7 @@ __all__ = [
     "ProfileDefinition",
     "RetrievalKeyError",
     "RetrievalStore",
+    "SearchHit",
     "AuditFinding",
     "AuditReport",
     "AuditSeverity",
@@ -25,4 +27,5 @@ __all__ = [
     "available_pack_profiles",
     "audit_pack",
     "pack_directory",
+    "search_pack",
 ]

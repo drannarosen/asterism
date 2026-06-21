@@ -65,6 +65,15 @@ def test_pack_inspect_and_retrieve_cli(tmp_path: Path) -> None:
     assert retrieve.exit_code == 0
     assert retrieve.output == content
 
+    get = runner.invoke(app, ["get", key, "--store", str(store)])
+    assert get.exit_code == 0
+    assert get.output == content
+
+    search = runner.invoke(app, ["search", str(json_out), "likelihood"])
+    assert search.exit_code == 0
+    assert "notes.md" in search.output
+    assert key in search.output
+
 
 def test_audit_cli_reports_success_and_failure(tmp_path: Path) -> None:
     root = tmp_path / "project"

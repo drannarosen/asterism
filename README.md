@@ -40,11 +40,19 @@ Audit schema-valid pack metadata and retrieval integrity:
 uv run asterism audit evidence-pack.json --store .asterism/store
 ```
 
+Search pack metadata before retrieving exact content:
+
+```bash
+uv run asterism search evidence-pack.json likelihood
+```
+
 Retrieve exact original content by key:
 
 ```bash
 uv run asterism retrieve sha256:<hash> --store .asterism/store
 ```
+
+`asterism get` is a shorter alias for `asterism retrieve`.
 
 ## Python API
 

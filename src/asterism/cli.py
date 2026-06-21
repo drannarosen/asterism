@@ -13,6 +13,7 @@ from asterism.audit import AuditReport, audit_pack
 from asterism.evidence import EvidencePack
 from asterism.packer import PackOptions, available_pack_profiles, pack_directory
 from asterism.retrieve import RetrievalKeyError, RetrievalStore
+from asterism.search import SearchHit, search_pack
 
 app = typer.Typer(
     name="asterism",
@@ -125,6 +126,32 @@ def audit_command(
         raise typer.Exit(code=1)
 
 
+@app.command("search")
+def search_command(
+    pack_json: Annotated[
+        Path,
+        typer.Argument(
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            resolve_path=True,
+            help="EvidencePack JSON file.",
+        ),
+    ],
+    query: Annotated[str, typer.Argument(help="Metadata query to search for.")],
+    limit: Annotated[int, typer.Option("--limit", "-n", help="Maximum hits to print.")] = 20,
+) -> None:
+    """Search EvidencePack metadata for paths, invariants, hashes, or retrieval keys."""
+    pack = EvidencePack.model_validate_json(pack_json.read_text(encoding="utf-8"))
+    try:
+        hits = search_pack(pack, query, limit=limit)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="query") from exc
+    _render_search_hits(hits, query=query)
+
+
+@app.command("get")
 @app.command("retrieve")
 def retrieve_command(
     key: Annotated[str, typer.Argument(help="Retrieval key, such as sha256:<digest>.")],
@@ -149,9 +176,53 @@ def retrieve_command(
         typer.echo(content, nl=False)
 
 
+def _render_search_hits(hits: list[SearchHit], *, query: str) -> None:
+    if not hits:
+        console.print(f"No EvidencePack metadata hits for [bold]{query}[/bold].")
+        return
+
+    table = Table(title=f"EvidencePack search: {query}")
+    table.add_column("Score", justify="right", no_wrap=True)
+    table.add_column("Path")
+    table.add_column("Lines", no_wrap=True)
+    table.add_column("Matched")
+    table.add_column("Key")
+    for hit in hits:
+        provenance = hit.item.provenance
+        table.add_row(
+            str(hit.score),
+            provenance.path,
+            _line_span(provenance.line_start, provenance.line_end),
+            ", ".join(hit.matched_fields),
+            _short_key(provenance.retrieval_key),
+        )
+    console.print(table)
+    typer.echo("Retrieval commands:")
+    for hit in hits:
+        provenance = hit.item.provenance
+        typer.echo(
+            f"- {provenance.path}: "
+            f"asterism retrieve {provenance.retrieval_key} --store .asterism/store"
+        )
+
+
 def _count_label(count: int, singular: str) -> str:
     suffix = singular if count == 1 else f"{singular}s"
     return f"{count} {suffix}"
+
+
+def _line_span(line_start: int, line_end: int | None) -> str:
+    if line_end is None:
+        return f"{line_start}-unknown"
+    if line_start == line_end:
+        return str(line_start)
+    return f"{line_start}-{line_end}"
+
+
+def _short_key(key: str) -> str:
+    if len(key) <= 24:
+        return key
+    return f"{key[:21]}..."
 
 
 def _render_audit_report(report: AuditReport) -> None:
