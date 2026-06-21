@@ -11,7 +11,13 @@ from typing import Literal, NamedTuple
 
 from pathspec.gitignore import GitIgnoreSpec
 
-from asterism.evidence import EvidenceItem, EvidencePack, InvariantMarker, OmittedMaterial
+from asterism.evidence import (
+    AuditSummary,
+    EvidenceItem,
+    EvidencePack,
+    InvariantMarker,
+    OmittedMaterial,
+)
 from asterism.provenance import FileProvenance
 from asterism.retrieve import RetrievalStore, sha256_digest
 
@@ -266,7 +272,7 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
 
     items = _rank_items(items, resolved.profile)
     pack_id = _pack_id(source_root, items, profile=resolved.profile.name)
-    return EvidencePack(
+    pack = EvidencePack(
         id=pack_id,
         profile=resolved.profile.name,
         source_scope=str(source_root),
@@ -274,6 +280,7 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
         items=items,
         omitted_material=omitted,
     )
+    return _attach_audit_summary(pack, store)
 
 
 def detect_invariants(content: str, *, line_offset: int = 0) -> list[InvariantMarker]:
@@ -340,6 +347,30 @@ def _resolve_options(options: PackOptions) -> _ResolvedPackOptions:
         max_file_bytes=options.max_file_bytes or profile.max_file_bytes,
         chunk_line_count=options.chunk_line_count or profile.chunk_line_count,
         extra_ignore_patterns=profile.extra_ignore_patterns + options.extra_ignore_patterns,
+    )
+
+
+def _attach_audit_summary(pack: EvidencePack, store: RetrievalStore) -> EvidencePack:
+    from asterism.audit import audit_pack
+
+    report = audit_pack(pack, store=store)
+    if not report.passed:
+        status = "failed"
+    elif report.warning_count:
+        status = "passed_with_warnings"
+    else:
+        status = "passed"
+    return pack.model_copy(
+        update={
+            "audit_status": status,
+            "audit_summary": AuditSummary(
+                status=status,
+                checked_items=report.checked_items,
+                checked_retrieval_keys=report.checked_retrieval_keys,
+                errors=report.error_count,
+                warnings=report.warning_count,
+            ),
+        }
     )
 
 

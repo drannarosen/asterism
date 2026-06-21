@@ -63,6 +63,25 @@ class OmittedMaterial(BaseModel):
         return value
 
 
+class AuditSummary(BaseModel):
+    """Compact audit counts embedded in pack output."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    checked_items: int = Field(ge=0)
+    checked_retrieval_keys: int = Field(ge=0)
+    errors: int = Field(ge=0)
+    warnings: int = Field(ge=0)
+
+    @field_validator("status")
+    @classmethod
+    def _validate_status(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("status must not be empty")
+        return value
+
+
 class EvidenceItem(BaseModel):
     """A provenance-bearing item in an EvidencePack."""
 
@@ -96,6 +115,7 @@ class EvidencePack(BaseModel):
     items: list[EvidenceItem] = Field(default_factory=list)
     omitted_material: list[OmittedMaterial] = Field(default_factory=list)
     audit_status: str = "draft"
+    audit_summary: AuditSummary | None = None
 
     @field_validator("id", "profile", "source_scope")
     @classmethod

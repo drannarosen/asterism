@@ -15,6 +15,10 @@ def test_audit_pack_passes_for_fresh_pack(tmp_path: Path) -> None:
     pack = pack_directory(root, options=PackOptions(store_path=store_path))
     report = audit_pack(pack, store=RetrievalStore(store_path))
 
+    assert pack.audit_status == "passed"
+    assert pack.audit_summary is not None
+    assert pack.audit_summary.errors == 0
+    assert pack.audit_summary.warnings == 0
     assert report.passed
     assert report.error_count == 0
     assert report.checked_items == 1
@@ -63,6 +67,9 @@ def test_audit_pack_reports_duplicate_retrieval_keys(tmp_path: Path) -> None:
     pack = pack_directory(root, options=PackOptions(store_path=store_path))
     report = audit_pack(pack, store=RetrievalStore(store_path))
 
+    assert pack.audit_status == "passed_with_warnings"
+    assert pack.audit_summary is not None
+    assert pack.audit_summary.warnings == 1
     assert report.passed
     assert report.warning_count == 1
     assert any(

@@ -35,6 +35,15 @@ def render_markdown(pack: EvidencePack) -> str:
         f"- Retrieval keys: {len(pack.retrieval_keys)}",
         f"- Omitted material: {len(pack.omitted_material)}",
     ]
+    if pack.audit_summary:
+        lines.extend(
+            [
+                f"- Audit checked items: {pack.audit_summary.checked_items}",
+                f"- Audit checked retrieval keys: {pack.audit_summary.checked_retrieval_keys}",
+                f"- Audit errors: {pack.audit_summary.errors}",
+                f"- Audit warnings: {pack.audit_summary.warnings}",
+            ]
+        )
     if pack.task_intent:
         lines.append(f"- Task intent: {pack.task_intent}")
 

@@ -48,18 +48,22 @@ def test_pack_inspect_and_retrieve_cli(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0
+    assert "Audit passed" in result.output
     assert md_out.exists()
     assert json_out.exists()
     assert "# EvidencePack:" in md_out.read_text(encoding="utf-8")
 
     pack = EvidencePack.model_validate_json(json_out.read_text(encoding="utf-8"))
     assert pack.profile == "debug"
+    assert pack.audit_summary is not None
+    assert pack.audit_summary.checked_items == 1
     key = pack.items[0].provenance.retrieval_key
 
     inspect = runner.invoke(app, ["inspect", str(json_out)])
     assert inspect.exit_code == 0
     assert "EvidencePack" in inspect.output
     assert "1 item" in inspect.output
+    assert "Audit checked items" in inspect.output
 
     retrieve = runner.invoke(app, ["retrieve", key, "--store", str(store)])
     assert retrieve.exit_code == 0

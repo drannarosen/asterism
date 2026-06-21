@@ -102,7 +102,8 @@ The current wire format is documented in
 example at [examples/evidencepack-v1alpha1.json](examples/evidencepack-v1alpha1.json).
 JSON output is the canonical machine-readable record; Markdown output is an
 agent handoff view with retrieval commands, invariant counts, and omission
-summaries.
+summaries. Packs created by `asterism pack` also embed compact audit summary
+counts for retrieval integrity.
 
 ## Public Repository Target
 

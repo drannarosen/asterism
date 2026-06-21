@@ -1,4 +1,10 @@
-from asterism.evidence import EvidenceItem, EvidencePack, InvariantMarker, OmittedMaterial
+from asterism.evidence import (
+    AuditSummary,
+    EvidenceItem,
+    EvidencePack,
+    InvariantMarker,
+    OmittedMaterial,
+)
 from asterism.provenance import FileProvenance
 from asterism.render import render_markdown
 
@@ -33,6 +39,14 @@ def test_render_markdown_includes_agent_handoff_sections() -> None:
                 source_path=".env",
             )
         ],
+        audit_status="passed_with_warnings",
+        audit_summary=AuditSummary(
+            status="passed_with_warnings",
+            checked_items=1,
+            checked_retrieval_keys=1,
+            errors=0,
+            warnings=1,
+        ),
     )
 
     markdown = render_markdown(pack)
@@ -40,6 +54,7 @@ def test_render_markdown_includes_agent_handoff_sections() -> None:
     assert "## Agent Handoff" in markdown
     assert "## Pack Summary" in markdown
     assert "## Invariant Index" in markdown
+    assert "- Audit warnings: 1" in markdown
     assert "- `equation`: 1" in markdown
     assert "- `units`: 1" in markdown
     assert "## Retrieval Commands" in markdown

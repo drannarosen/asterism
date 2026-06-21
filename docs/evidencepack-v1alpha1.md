@@ -33,6 +33,7 @@ An EvidencePack JSON object has these fields:
 | `items` | array | yes | Provenance-bearing evidence items. |
 | `omitted_material` | array | yes | Explicit records for skipped or omitted material. |
 | `audit_status` | string | yes | Current audit status. MVP packs default to `draft`. |
+| `audit_summary` | object or null | yes | Compact audit counts when a pack was audited during creation. |
 
 `id`, `profile`, and `source_scope` must not be empty.
 
@@ -100,6 +101,22 @@ Each `omitted_material[]` entry has:
 | `source_path` | string or null | yes | Source path associated with the omission. |
 
 The MVP records omissions for unreadable, oversized, binary, or non-UTF-8 files.
+
+## Audit Summary
+
+When present, `audit_summary` contains compact counts from the retrieval-integrity audit run during
+pack creation:
+
+| Field | Type | Required | Meaning |
+|:--|:--|:--|:--|
+| `status` | string | yes | Audit status such as `passed`, `passed_with_warnings`, or `failed`. |
+| `checked_items` | integer | yes | Number of evidence items checked. |
+| `checked_retrieval_keys` | integer | yes | Number of retrieval keys checked. |
+| `errors` | integer | yes | Count of audit errors. |
+| `warnings` | integer | yes | Count of audit warnings. |
+
+The detailed finding list remains the responsibility of `asterism audit`; the pack embeds only summary
+counts so JSON and Markdown handoffs can surface integrity state without rerunning the audit.
 
 ## Canonical JSON
 

@@ -1,7 +1,13 @@
 """Asterism public API."""
 
 from asterism.audit import AuditFinding, AuditReport, AuditSeverity, audit_pack
-from asterism.evidence import EvidenceItem, EvidencePack, InvariantMarker, OmittedMaterial
+from asterism.evidence import (
+    AuditSummary,
+    EvidenceItem,
+    EvidencePack,
+    InvariantMarker,
+    OmittedMaterial,
+)
 from asterism.packer import PackOptions, ProfileDefinition, available_pack_profiles, pack_directory
 from asterism.provenance import FileProvenance
 from asterism.retrieve import RetrievalKeyError, RetrievalStore
@@ -23,6 +29,7 @@ __all__ = [
     "AuditFinding",
     "AuditReport",
     "AuditSeverity",
+    "AuditSummary",
     "__version__",
     "available_pack_profiles",
     "audit_pack",

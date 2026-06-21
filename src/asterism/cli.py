@@ -69,7 +69,13 @@ def pack_command(
     pack.write_markdown(out)
     if json_path:
         pack.write_json(json_path)
-    console.print(f"Wrote EvidencePack [bold]{pack.id}[/bold] with {len(pack.items)} items.")
+    message = f"Wrote EvidencePack [bold]{pack.id}[/bold] with {len(pack.items)} items."
+    if pack.audit_summary:
+        message += (
+            f" Audit {pack.audit_summary.status}: "
+            f"{pack.audit_summary.errors} errors, {pack.audit_summary.warnings} warnings."
+        )
+    console.print(message)
 
 
 @app.command("inspect")
@@ -97,6 +103,14 @@ def inspect_command(
     table.add_row("Retrieval keys", _count_label(len(pack.retrieval_keys), "retrieval key"))
     table.add_row("Omitted material", _count_label(len(pack.omitted_material), "record"))
     table.add_row("Audit status", pack.audit_status)
+    if pack.audit_summary:
+        table.add_row("Audit checked items", str(pack.audit_summary.checked_items))
+        table.add_row(
+            "Audit checked retrieval keys",
+            str(pack.audit_summary.checked_retrieval_keys),
+        )
+        table.add_row("Audit errors", str(pack.audit_summary.errors))
+        table.add_row("Audit warnings", str(pack.audit_summary.warnings))
     console.print(table)
 
 
