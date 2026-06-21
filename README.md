@@ -115,3 +115,6 @@ A private science-repository pilot runbook is available at
 [docs/pilots/jaxstro-science-repo-pilot.md](docs/pilots/jaxstro-science-repo-pilot.md).
 It defines safe local-only commands, success criteria, stop conditions, and the
 public/private boundary for learnings from jaxstro science repos.
+
+A human-readable package overview and next-step roadmap is available at
+[docs/overview-and-next-steps.md](docs/overview-and-next-steps.md).
