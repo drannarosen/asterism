@@ -1,8 +1,10 @@
+from pathlib import Path
+
 from asterism import PackOptions, pack_directory
 from asterism.retrieve import RetrievalStore
 
 
-def test_pack_directory_records_file_provenance_and_retrieval(tmp_path) -> None:
+def test_pack_directory_records_file_provenance_and_retrieval(tmp_path: Path) -> None:
     root = tmp_path / "project"
     root.mkdir()
     content = "Equation: E = mc^2\nunits: cgs\n"
@@ -22,7 +24,7 @@ def test_pack_directory_records_file_provenance_and_retrieval(tmp_path) -> None:
     assert store.retrieve_text(item.provenance.retrieval_key) == content
 
 
-def test_pack_directory_chunks_large_text_files_by_line_span(tmp_path) -> None:
+def test_pack_directory_chunks_large_text_files_by_line_span(tmp_path: Path) -> None:
     root = tmp_path / "project"
     root.mkdir()
     content = "line 1\nline 2\nline 3\nline 4\nline 5\n"
@@ -47,7 +49,7 @@ def test_pack_directory_chunks_large_text_files_by_line_span(tmp_path) -> None:
     assert store.retrieve_text(pack.items[2].provenance.retrieval_key) == "line 5\n"
 
 
-def test_chunked_invariant_markers_keep_source_line_numbers(tmp_path) -> None:
+def test_chunked_invariant_markers_keep_source_line_numbers(tmp_path: Path) -> None:
     root = tmp_path / "project"
     root.mkdir()
     content = "intro\ncontext\nEquation: E = mc^2\nunits: cgs\n"
@@ -71,7 +73,7 @@ def test_chunked_invariant_markers_keep_source_line_numbers(tmp_path) -> None:
     assert [marker.line_start for marker in units_markers] == [4]
 
 
-def test_pack_directory_skips_ignored_paths(tmp_path) -> None:
+def test_pack_directory_skips_ignored_paths(tmp_path: Path) -> None:
     root = tmp_path / "project"
     root.mkdir()
     (root / "keep.md").write_text("likelihood: gaussian\n", encoding="utf-8")

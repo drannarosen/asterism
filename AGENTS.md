@@ -42,6 +42,7 @@ Before claiming work is complete, run:
 ```bash
 uv run --extra dev pytest -v
 uv run --extra dev ruff check .
+uv run --extra dev mypy
 ```
 
 For CLI or packing changes, also run:

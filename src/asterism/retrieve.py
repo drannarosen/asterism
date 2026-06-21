@@ -62,7 +62,7 @@ class RetrievalStore:
         return blob_path.read_bytes()
 
     def _blob_path(self, digest: str) -> Path:
-        return self.root / "blobs" / "sha256" / digest
+        return Path(self.root) / "blobs" / "sha256" / digest
 
     @staticmethod
     def _digest_from_key(key: str) -> str:

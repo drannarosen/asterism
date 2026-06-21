@@ -1,9 +1,11 @@
+from pathlib import Path
+
 import pytest
 
 from asterism.retrieve import RetrievalKeyError, RetrievalStore
 
 
-def test_store_puts_and_retrieves_exact_text(tmp_path) -> None:
+def test_store_puts_and_retrieves_exact_text(tmp_path: Path) -> None:
     store = RetrievalStore(tmp_path / "store")
     content = "alpha\nbeta\n"
 
@@ -13,7 +15,7 @@ def test_store_puts_and_retrieves_exact_text(tmp_path) -> None:
     assert store.retrieve_text(key) == content
 
 
-def test_store_rejects_unknown_key(tmp_path) -> None:
+def test_store_rejects_unknown_key(tmp_path: Path) -> None:
     store = RetrievalStore(tmp_path / "store")
 
     with pytest.raises(RetrievalKeyError):

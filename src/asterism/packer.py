@@ -7,7 +7,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import NamedTuple
+from typing import Literal, NamedTuple
 
 from pathspec.gitignore import GitIgnoreSpec
 
@@ -100,7 +100,9 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
             digest = sha256_digest(chunk_bytes)
             retrieval_key = store.put_bytes(chunk_bytes, source_path=relative_path)
             invariants = detect_invariants(chunk.text, line_offset=chunk.line_start - 1)
-            granularity = "file" if chunk_count == 1 else "line_chunk"
+            granularity: Literal["file", "line_chunk"] = (
+                "file" if chunk_count == 1 else "line_chunk"
+            )
             items.append(
                 EvidenceItem(
                     kind="file" if granularity == "file" else "file_chunk",

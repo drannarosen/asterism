@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from asterism.provenance import RETRIEVAL_KEY_PATTERN, FileProvenance, validate_relative_posix_path
 
-SCHEMA_VERSION = "asterism.evidencepack.v1alpha1"
+SCHEMA_VERSION: Literal["asterism.evidencepack.v1alpha1"] = "asterism.evidencepack.v1alpha1"
 
 
 class InvariantMarker(BaseModel):

@@ -30,7 +30,7 @@ def test_evidence_pack_round_trips_json() -> None:
     assert restored.items[0].invariants[0].kind == "equation"
 
 
-def test_evidence_pack_writes_json(tmp_path) -> None:
+def test_evidence_pack_writes_json(tmp_path: Path) -> None:
     output_path = tmp_path / "pack.json"
     pack = EvidencePack(id="pack-demo", source_scope=".")
 

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from typer.testing import CliRunner
 
 from asterism.cli import app
@@ -10,7 +12,7 @@ def test_cli_help_renders() -> None:
     assert "pack" in result.output
 
 
-def test_pack_inspect_and_retrieve_cli(tmp_path) -> None:
+def test_pack_inspect_and_retrieve_cli(tmp_path: Path) -> None:
     root = tmp_path / "project"
     root.mkdir()
     content = "likelihood: gaussian\n"
