@@ -24,4 +24,5 @@ def test_evidence_pack_writes_json(tmp_path) -> None:
 
     pack.write_json(output_path)
 
-    assert EvidencePack.model_validate_json(output_path.read_text(encoding="utf-8")).id == "pack-demo"
+    restored = EvidencePack.model_validate_json(output_path.read_text(encoding="utf-8"))
+    assert restored.id == "pack-demo"

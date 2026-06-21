@@ -14,7 +14,6 @@ from asterism.evidence import EvidenceItem, EvidencePack, InvariantMarker, Omitt
 from asterism.provenance import FileProvenance
 from asterism.retrieve import RetrievalStore, sha256_digest
 
-
 DEFAULT_IGNORE_PATTERNS = (
     ".git/",
     ".asterism/",
@@ -55,7 +54,9 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
         raise NotADirectoryError(source_root)
 
     options = options or PackOptions()
-    store_path = Path(options.store_path) if options.store_path else source_root / ".asterism" / "store"
+    store_path = (
+        Path(options.store_path) if options.store_path else source_root / ".asterism" / "store"
+    )
     store = RetrievalStore(store_path)
     ignore_spec = _build_ignore_spec(source_root, options)
     git_commit = _git_commit(source_root) if options.include_git else None
@@ -84,7 +85,9 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
         try:
             content = content_bytes.decode("utf-8")
         except UnicodeDecodeError:
-            omitted.append(OmittedMaterial(reason="Binary or non-UTF-8 file", source_path=relative_path))
+            omitted.append(
+                OmittedMaterial(reason="Binary or non-UTF-8 file", source_path=relative_path)
+            )
             continue
 
         digest = sha256_digest(content_bytes)

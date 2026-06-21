@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from asterism.provenance import FileProvenance
 
-
 SCHEMA_VERSION = "asterism.evidencepack.v1alpha1"
 
 
