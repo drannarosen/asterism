@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "asterism"
+version = "0.1.0"
+description = "Scientific context-reduction engine for provenance-preserving EvidencePacks."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+  { name = "Anna Rosen" }
+]
+keywords = ["science", "context", "provenance", "retrieval", "evidence"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "pathspec>=0.12.1",
+  "pydantic>=2.8",
+  "rich>=13.7",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2",
+  "ruff>=0.6",
+]
+
+[project.urls]
+Homepage = "https://github.com/drannarosen/asterism"
+Repository = "https://github.com/drannarosen/asterism"
+Issues = "https://github.com/drannarosen/asterism/issues"
+
+[project.scripts]
+asterism = "asterism.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/asterism"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
