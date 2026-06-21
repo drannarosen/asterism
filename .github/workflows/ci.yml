@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    name: Tests and quality gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run tests
+        run: uv run --extra dev pytest -v
+
+      - name: Run Ruff
+        run: uv run --extra dev ruff check .
+
+      - name: Run mypy
+        run: uv run --extra dev mypy
+
+      - name: Check CLI help
+        run: uv run --extra dev python -m asterism.cli --help
+
+      - name: Build smoke EvidencePack
+        run: uv run --extra dev asterism pack . --out evidence-pack.md --json evidence-pack.json
+
+      - name: Inspect smoke EvidencePack
+        run: uv run --extra dev asterism inspect evidence-pack.json
+
+      - name: Audit smoke EvidencePack
+        run: uv run --extra dev asterism audit evidence-pack.json --store .asterism/store
