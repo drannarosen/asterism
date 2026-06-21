@@ -44,9 +44,9 @@ uv run --extra dev asterism retrieve \
 - The detector was tightened so quoted/bracketed lockfile assignments are not treated as equations.
 - After the fix, the generated handoff prioritized Asterism source and tests instead of `uv.lock`.
 
-## Follow-Up
+## Follow-Up Status
 
-- Add audit-summary metadata into pack output so this dogfood warning can be surfaced directly in
-  `inspect` and Markdown without requiring a separate audit command.
-- Add domain extractors so invariant detection can distinguish scientific equations from generic config
-  syntax more systematically.
+- Done: audit-summary metadata is now embedded in pack output and surfaced by `inspect` and Markdown.
+- Done: deterministic domain extractors now own invariant detection outside the packer.
+- Next: run a private pilot on one science jaxstro repository, keeping generated packs and retrieval
+  stores out of version control unless Anna explicitly chooses a sanitized artifact to publish.

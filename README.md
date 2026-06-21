@@ -108,3 +108,10 @@ counts for retrieval integrity.
 ## Public Repository Target
 
 This package is intended for `drannarosen/asterism`.
+
+## Pilot Readiness
+
+A private science-repository pilot runbook is available at
+[docs/pilots/jaxstro-science-repo-pilot.md](docs/pilots/jaxstro-science-repo-pilot.md).
+It defines safe local-only commands, success criteria, stop conditions, and the
+public/private boundary for learnings from jaxstro science repos.

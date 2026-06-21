@@ -64,6 +64,9 @@ Generated `evidence-pack.md`, `evidence-pack.json`, and `.asterism/` are ignored
 - Local directory packing lives in `src/asterism/packer.py`.
 - Exact retrieval lives in `src/asterism/retrieve.py`.
 - Markdown rendering lives in `src/asterism/render.py`.
+- Retrieval integrity checks live in `src/asterism/audit.py`.
+- Metadata search lives in `src/asterism/search.py`.
+- Deterministic scientific invariant extractors live in `src/asterism/extractors.py`.
 
 When changing any public API, update tests and README examples in the same commit.
 
