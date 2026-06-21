@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from asterism import PackOptions, pack_directory
+from asterism.packer import detect_invariants
 from asterism.retrieve import RetrievalStore
 
 
@@ -75,6 +76,14 @@ def test_chunked_invariant_markers_keep_source_line_numbers(tmp_path: Path) -> N
     assert [marker.line_start for marker in units_markers] == [4]
 
 
+def test_equation_detector_ignores_lockfile_assignments() -> None:
+    content = 'name = "mypy"\nversion = "2.1.0"\nsdist = { url = "https://example.test" }\n'
+
+    markers = detect_invariants(content)
+
+    assert [marker.kind for marker in markers] == []
+
+
 def test_pack_directory_skips_ignored_paths(tmp_path: Path) -> None:
     root = tmp_path / "project"
     root.mkdir()
@@ -138,7 +147,31 @@ def test_pack_directory_respects_nested_gitignore(tmp_path: Path) -> None:
 
     pack = pack_directory(root, options=PackOptions(store_path=root / ".asterism" / "store"))
 
-    assert [item.provenance.path for item in pack.items] == ["docs/.gitignore", "docs/keep.md"]
+    assert [item.provenance.path for item in pack.items] == ["docs/keep.md", "docs/.gitignore"]
+
+
+def test_pack_directory_profiles_prioritize_emphasized_invariants(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "units.md").write_text("units: cgs\n", encoding="utf-8")
+    (root / "failure.log").write_text(
+        "FAILED test_energy\ntolerance threshold\n",
+        encoding="utf-8",
+    )
+
+    debug_pack = pack_directory(
+        root,
+        options=PackOptions(profile="debug", store_path=root / ".asterism" / "debug-store"),
+    )
+    repo_pack = pack_directory(
+        root,
+        options=PackOptions(profile="repo", store_path=root / ".asterism" / "repo-store"),
+    )
+
+    assert debug_pack.items[0].provenance.path == "failure.log"
+    assert "Profile debug emphasis: failing_test=1, tolerance=1." in debug_pack.items[0].summary
+    assert repo_pack.items[0].provenance.path == "units.md"
+    assert "Profile repo emphasis: units=1." in repo_pack.items[0].summary
 
 
 def test_pack_directory_records_large_file_omission(tmp_path: Path) -> None:

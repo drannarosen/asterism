@@ -81,7 +81,8 @@ does not include ML compression or Rust acceleration yet.
 
 Pack profiles currently include `repo`, `debug`, `review`, and `handoff`. They
 set deterministic chunk sizes, max file sizes, generated-output ignores, and
-document which invariant families the profile is meant to emphasize.
+which invariant families the profile emphasizes. Profile emphasis is semantic:
+matching chunks are ordered earlier in the pack and labeled in item summaries.
 
 Files can be represented as whole-file records or deterministic line chunks.
 Each record carries line spans, byte spans, chunk index/count, SHA-256 digest,

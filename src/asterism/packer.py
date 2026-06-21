@@ -33,7 +33,8 @@ DEFAULT_IGNORE_PATTERNS = (
     "build/",
 )
 
-_EQUATION_RE = re.compile(r"(^|\b)(equation|formula)\b|[A-Za-z0-9_{}\])]\s*=\s*[^=]")
+_EQUATION_WORD_RE = re.compile(r"(^|\b)(equation|formula)\b", re.IGNORECASE)
+_EQUATION_LHS_RE = re.compile(r"[A-Za-z][A-Za-z0-9_{}^\\/\s+\-*()]*")
 _DOI_RE = re.compile(r"\b(doi:|10\.\d{4,9}/|arxiv:)\b", re.IGNORECASE)
 _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
@@ -255,6 +256,7 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
                     summary=_file_summary(
                         chunk.line_count,
                         invariants,
+                        profile=resolved.profile,
                         chunk_index=chunk_index,
                         chunk_count=chunk_count,
                     ),
@@ -262,6 +264,7 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
                 )
             )
 
+    items = _rank_items(items, resolved.profile)
     pack_id = _pack_id(source_root, items, profile=resolved.profile.name)
     return EvidencePack(
         id=pack_id,
@@ -290,7 +293,7 @@ def detect_invariants(content: str, *, line_offset: int = 0) -> list[InvariantMa
 
 def _invariant_kinds(line: str, lowered: str) -> list[str]:
     kinds: list[str] = []
-    if _EQUATION_RE.search(line):
+    if _is_equation_line(line):
         kinds.append("equation")
     if "unit" in lowered or "cgs" in lowered or "si " in lowered:
         kinds.append("units")
@@ -307,6 +310,24 @@ def _invariant_kinds(line: str, lowered: str) -> list[str]:
     if "citation" in lowered or _DOI_RE.search(line):
         kinds.append("citation")
     return kinds
+
+
+def _is_equation_line(line: str) -> bool:
+    if _EQUATION_WORD_RE.search(line):
+        return True
+    if "=" not in line or "==" in line:
+        return False
+    left, right = line.split("=", maxsplit=1)
+    left = left.strip()
+    right = right.strip()
+    if not left or not right:
+        return False
+    if right.startswith(('"', "'", "{", "[")):
+        return False
+    if not _EQUATION_LHS_RE.fullmatch(left):
+        return False
+    math_signals = ("^", "\\", "_", "*", "/", "+", "-", " sin", " cos", " exp", " log", " sqrt")
+    return any(signal in f" {right.lower()}" for signal in math_signals)
 
 
 def _resolve_options(options: PackOptions) -> _ResolvedPackOptions:
@@ -510,17 +531,56 @@ def _file_summary(
     line_count: int | None,
     invariants: list[InvariantMarker],
     *,
+    profile: ProfileDefinition,
     chunk_index: int = 0,
     chunk_count: int = 1,
 ) -> str:
     line_label = "0 lines" if line_count is None else f"{line_count} lines"
     marker_label = f"{len(invariants)} invariant markers"
     if chunk_count == 1:
-        return f"Stored exact text file with {line_label} and {marker_label}."
-    return (
-        f"Stored exact text chunk {chunk_index + 1}/{chunk_count} "
-        f"with {line_label} and {marker_label}."
+        summary = f"Stored exact text file with {line_label} and {marker_label}."
+    else:
+        summary = (
+            f"Stored exact text chunk {chunk_index + 1}/{chunk_count} "
+            f"with {line_label} and {marker_label}."
+        )
+    emphasis_label = _profile_emphasis_label(invariants, profile)
+    if emphasis_label:
+        summary += f" Profile {profile.name} emphasis: {emphasis_label}."
+    return summary
+
+
+def _rank_items(items: list[EvidenceItem], profile: ProfileDefinition) -> list[EvidenceItem]:
+    """Order items by profile semantic emphasis, then stable source position."""
+    return sorted(
+        items,
+        key=lambda item: (
+            -_profile_priority(item, profile),
+            item.provenance.path,
+            item.provenance.chunk_index,
+            item.title,
+        ),
     )
+
+
+def _profile_priority(item: EvidenceItem, profile: ProfileDefinition) -> int:
+    emphasized = set(profile.emphasized_invariants)
+    emphasized_count = sum(marker.kind in emphasized for marker in item.invariants)
+    return emphasized_count * 100 + len(item.invariants)
+
+
+def _profile_emphasis_label(
+    invariants: list[InvariantMarker], profile: ProfileDefinition
+) -> str | None:
+    emphasized = set(profile.emphasized_invariants)
+    counts: dict[str, int] = {}
+    for marker in invariants:
+        if marker.kind not in emphasized:
+            continue
+        counts[marker.kind] = counts.get(marker.kind, 0) + 1
+    if not counts:
+        return None
+    return ", ".join(f"{kind}={count}" for kind, count in sorted(counts.items()))
 
 
 def _item_title(relative_path: str, line_start: int, line_end: int | None, chunk_count: int) -> str:
