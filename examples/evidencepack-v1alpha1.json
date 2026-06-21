@@ -1,0 +1,40 @@
+{
+  "audit_status": "draft",
+  "created_at": "2026-06-21T19:00:00Z",
+  "id": "example-pack",
+  "items": [
+    {
+      "invariants": [
+        {
+          "kind": "equation",
+          "line_end": null,
+          "line_start": 1,
+          "text": "Equation: E = mc^2"
+        },
+        {
+          "kind": "units",
+          "line_end": null,
+          "line_start": 2,
+          "text": "units: cgs"
+        }
+      ],
+      "kind": "file",
+      "provenance": {
+        "byte_length": 29,
+        "char_length": 29,
+        "git_commit": null,
+        "line_end": 2,
+        "line_start": 1,
+        "path": "notes.md",
+        "retrieval_key": "sha256:b4d49e9328d6dc551ae29d8199491c3f332f3317770ccc1b6d7536b7a63a351c",
+        "sha256": "b4d49e9328d6dc551ae29d8199491c3f332f3317770ccc1b6d7536b7a63a351c"
+      },
+      "summary": "Stored exact text file with 2 lines and 2 invariant markers.",
+      "title": "notes.md"
+    }
+  ],
+  "omitted_material": [],
+  "schema_version": "asterism.evidencepack.v1alpha1",
+  "source_scope": "fixture://minimal",
+  "task_intent": "Document the minimal v1alpha1 EvidencePack shape."
+}

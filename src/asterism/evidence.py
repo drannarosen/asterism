@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from asterism.provenance import FileProvenance
+from asterism.provenance import RETRIEVAL_KEY_PATTERN, FileProvenance, validate_relative_posix_path
 
 SCHEMA_VERSION = "asterism.evidencepack.v1alpha1"
 
@@ -23,6 +24,13 @@ class InvariantMarker(BaseModel):
     line_start: int | None = Field(default=None, ge=1)
     line_end: int | None = Field(default=None, ge=1)
 
+    @field_validator("kind", "text")
+    @classmethod
+    def _validate_non_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("value must not be empty")
+        return value
+
 
 class OmittedMaterial(BaseModel):
     """Description of material represented by retrieval instead of compact context."""
@@ -32,6 +40,27 @@ class OmittedMaterial(BaseModel):
     reason: str
     retrieval_key: str | None = None
     source_path: str | None = None
+
+    @field_validator("reason")
+    @classmethod
+    def _validate_reason(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("reason must not be empty")
+        return value
+
+    @field_validator("retrieval_key")
+    @classmethod
+    def _validate_retrieval_key(cls, value: str | None) -> str | None:
+        if value is not None and not RETRIEVAL_KEY_PATTERN.fullmatch(value):
+            raise ValueError("retrieval_key must have form sha256:<64 lowercase hex characters>")
+        return value
+
+    @field_validator("source_path")
+    @classmethod
+    def _validate_source_path(cls, value: str | None) -> str | None:
+        if value is not None:
+            return validate_relative_posix_path(value, field_name="source_path")
+        return value
 
 
 class EvidenceItem(BaseModel):
@@ -44,6 +73,13 @@ class EvidenceItem(BaseModel):
     provenance: FileProvenance
     summary: str = ""
     invariants: list[InvariantMarker] = Field(default_factory=list)
+
+    @field_validator("kind", "title")
+    @classmethod
+    def _validate_non_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("value must not be empty")
+        return value
 
 
 class EvidencePack(BaseModel):
@@ -60,6 +96,13 @@ class EvidencePack(BaseModel):
     omitted_material: list[OmittedMaterial] = Field(default_factory=list)
     audit_status: str = "draft"
 
+    @field_validator("id", "source_scope")
+    @classmethod
+    def _validate_non_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("value must not be empty")
+        return value
+
     @property
     def retrieval_keys(self) -> list[str]:
         """Return all exact retrieval keys referenced by pack items."""
@@ -67,7 +110,11 @@ class EvidencePack(BaseModel):
 
     def write_json(self, path: Path | str) -> None:
         """Write the pack as stable, indented JSON."""
-        Path(path).write_text(self.model_dump_json(indent=2) + "\n", encoding="utf-8")
+        Path(path).write_text(self.to_canonical_json() + "\n", encoding="utf-8")
+
+    def to_canonical_json(self) -> str:
+        """Return stable JSON for the v1alpha1 wire format."""
+        return json.dumps(self.model_dump(mode="json"), indent=2, sort_keys=True)
 
     def write_markdown(self, path: Path | str) -> None:
         """Write a Markdown rendering of the pack."""
