@@ -89,6 +89,8 @@ Each `invariants[]` entry has:
 | `line_end` | integer or null | yes | Last source line for the marker. |
 
 Invariant markers are advisory in `v1alpha1`. Exact retrieval is the correctness guarantee.
+Built-in deterministic extractor domains are `equation`, `units`, `probability`,
+`tolerance`, `api_contract`, `failing_test`, and `citation`.
 
 ## Omitted Material
 

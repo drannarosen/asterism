@@ -18,6 +18,7 @@ from asterism.evidence import (
     InvariantMarker,
     OmittedMaterial,
 )
+from asterism.extractors import extract_invariants
 from asterism.provenance import FileProvenance
 from asterism.retrieve import RetrievalStore, sha256_digest
 
@@ -39,9 +40,6 @@ DEFAULT_IGNORE_PATTERNS = (
     "build/",
 )
 
-_EQUATION_WORD_RE = re.compile(r"(^|\b)(equation|formula)\b", re.IGNORECASE)
-_EQUATION_LHS_RE = re.compile(r"[A-Za-z][A-Za-z0-9_{}^\\/\s+\-*()]*")
-_DOI_RE = re.compile(r"\b(doi:|10\.\d{4,9}/|arxiv:)\b", re.IGNORECASE)
 _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "private key",
@@ -236,7 +234,7 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
             chunk_bytes = chunk.text.encode("utf-8")
             digest = sha256_digest(chunk_bytes)
             retrieval_key = store.put_bytes(chunk_bytes, source_path=relative_path)
-            invariants = detect_invariants(chunk.text, line_offset=chunk.line_start - 1)
+            invariants = extract_invariants(chunk.text, line_offset=chunk.line_start - 1)
             granularity: Literal["file", "line_chunk"] = (
                 "file" if chunk_count == 1 else "line_chunk"
             )
@@ -285,56 +283,7 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
 
 def detect_invariants(content: str, *, line_offset: int = 0) -> list[InvariantMarker]:
     """Return deterministic markers for likely scientific correctness invariants."""
-    markers: list[InvariantMarker] = []
-    for line_number, line in enumerate(content.splitlines(), start=1):
-        stripped = line.strip()
-        if not stripped:
-            continue
-        lowered = stripped.lower()
-        for kind in _invariant_kinds(stripped, lowered):
-            markers.append(
-                InvariantMarker(kind=kind, text=stripped, line_start=line_offset + line_number)
-            )
-    return markers
-
-
-def _invariant_kinds(line: str, lowered: str) -> list[str]:
-    kinds: list[str] = []
-    if _is_equation_line(line):
-        kinds.append("equation")
-    if "unit" in lowered or "cgs" in lowered or "si " in lowered:
-        kinds.append("units")
-    if "prior" in lowered:
-        kinds.append("prior")
-    if "likelihood" in lowered:
-        kinds.append("likelihood")
-    if "tolerance" in lowered or "tol=" in lowered or "rtol" in lowered or "atol" in lowered:
-        kinds.append("tolerance")
-    if "api" in lowered or "schema" in lowered or "contract" in lowered:
-        kinds.append("api_contract")
-    if "traceback" in lowered or "failed" in lowered or "error:" in lowered:
-        kinds.append("failing_test")
-    if "citation" in lowered or _DOI_RE.search(line):
-        kinds.append("citation")
-    return kinds
-
-
-def _is_equation_line(line: str) -> bool:
-    if _EQUATION_WORD_RE.search(line):
-        return True
-    if "=" not in line or "==" in line:
-        return False
-    left, right = line.split("=", maxsplit=1)
-    left = left.strip()
-    right = right.strip()
-    if not left or not right:
-        return False
-    if right.startswith(('"', "'", "{", "[")):
-        return False
-    if not _EQUATION_LHS_RE.fullmatch(left):
-        return False
-    math_signals = ("^", "\\", "_", "*", "/", "+", "-", " sin", " cos", " exp", " log", " sqrt")
-    return any(signal in f" {right.lower()}" for signal in math_signals)
+    return extract_invariants(content, line_offset=line_offset)
 
 
 def _resolve_options(options: PackOptions) -> _ResolvedPackOptions:

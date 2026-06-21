@@ -88,10 +88,10 @@ Files can be represented as whole-file records or deterministic line chunks.
 Each record carries line spans, byte spans, chunk index/count, SHA-256 digest,
 and an exact retrieval key.
 
-The scientific invariant detector is deliberately conservative and deterministic.
-It marks lines that look like equations, units, priors, likelihoods, tolerances,
-API contracts, citations, or failures, but the hard v0.1 guarantee is exact
-retrieval from content-addressed storage.
+The scientific invariant extractors are deliberately conservative and
+deterministic. They mark lines that look like equations, units, priors,
+likelihoods, tolerances, API contracts, citations, or failures, but the hard
+v0.1 guarantee is exact retrieval from content-addressed storage.
 
 For public-package safety, files that are too large, binary or non-UTF-8,
 symlinks, and secret-looking text files are omitted explicitly rather than

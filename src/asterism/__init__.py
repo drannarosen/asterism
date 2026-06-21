@@ -8,6 +8,11 @@ from asterism.evidence import (
     InvariantMarker,
     OmittedMaterial,
 )
+from asterism.extractors import (
+    available_domain_extractors,
+    extract_invariants,
+    extract_line_invariant_kinds,
+)
 from asterism.packer import PackOptions, ProfileDefinition, available_pack_profiles, pack_directory
 from asterism.provenance import FileProvenance
 from asterism.retrieve import RetrievalKeyError, RetrievalStore
@@ -33,6 +38,9 @@ __all__ = [
     "__version__",
     "available_pack_profiles",
     "audit_pack",
+    "available_domain_extractors",
+    "extract_invariants",
+    "extract_line_invariant_kinds",
     "pack_directory",
     "search_pack",
 ]
