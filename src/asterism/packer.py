@@ -35,6 +35,36 @@ DEFAULT_IGNORE_PATTERNS = (
 
 _EQUATION_RE = re.compile(r"(^|\b)(equation|formula)\b|[A-Za-z0-9_{}\])]\s*=\s*[^=]")
 _DOI_RE = re.compile(r"\b(doi:|10\.\d{4,9}/|arxiv:)\b", re.IGNORECASE)
+_SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "private key",
+        re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----"),
+    ),
+    (
+        "OpenAI API key",
+        re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b"),
+    ),
+    (
+        "GitHub token",
+        re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b"),
+    ),
+    (
+        "AWS access key",
+        re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b"),
+    ),
+    (
+        "Slack token",
+        re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{20,}\b"),
+    ),
+    (
+        "secret assignment",
+        re.compile(
+            r"\b(?:api[_-]?key|secret|token|password|passwd|client_secret|private_key)"
+            r"\b\s*[:=]\s*[\"']?[A-Za-z0-9_./+=@$%:~-]{12,}",
+            re.IGNORECASE,
+        ),
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -150,7 +180,9 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
 
     items: list[EvidenceItem] = []
     omitted: list[OmittedMaterial] = []
-    for path in _iter_candidate_files(source_root, ignore_spec):
+    candidate_files, path_omissions = _iter_candidate_files(source_root, ignore_spec)
+    omitted.extend(path_omissions)
+    for path in candidate_files:
         relative_path = path.relative_to(source_root).as_posix()
         try:
             content_bytes = path.read_bytes()
@@ -169,11 +201,25 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
             )
             continue
 
+        if _is_binary_content(content_bytes):
+            omitted.append(OmittedMaterial(reason="Binary file", source_path=relative_path))
+            continue
+
         try:
             content = content_bytes.decode("utf-8")
         except UnicodeDecodeError:
             omitted.append(
                 OmittedMaterial(reason="Binary or non-UTF-8 file", source_path=relative_path)
+            )
+            continue
+
+        secret_match = _detect_secret(content)
+        if secret_match is not None:
+            omitted.append(
+                OmittedMaterial(
+                    reason=f"Secret-looking content omitted ({secret_match})",
+                    source_path=relative_path,
+                )
             )
             continue
 
@@ -278,27 +324,76 @@ def _resolve_options(options: PackOptions) -> _ResolvedPackOptions:
 
 def _build_ignore_spec(root: Path, options: _ResolvedPackOptions) -> GitIgnoreSpec:
     patterns = list(DEFAULT_IGNORE_PATTERNS)
-    gitignore = root / ".gitignore"
-    if gitignore.exists():
-        patterns.extend(gitignore.read_text(encoding="utf-8").splitlines())
+    patterns.extend(_gitignore_patterns(root))
     patterns.extend(options.extra_ignore_patterns)
     return GitIgnoreSpec.from_lines(patterns)
 
 
-def _iter_candidate_files(root: Path, ignore_spec: GitIgnoreSpec) -> list[Path]:
+def _gitignore_patterns(root: Path) -> list[str]:
+    patterns: list[str] = []
+    for gitignore in sorted(root.rglob(".gitignore")):
+        base = gitignore.parent.relative_to(root).as_posix()
+        for raw_line in gitignore.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                patterns.append(raw_line)
+                continue
+            if not base or base == ".":
+                patterns.append(raw_line)
+                continue
+            patterns.extend(_prefix_gitignore_pattern(line, base))
+    return patterns
+
+
+def _prefix_gitignore_pattern(line: str, base: str) -> list[str]:
+    negated = line.startswith("!")
+    pattern = line[1:] if negated else line
+    pattern = pattern.lstrip("/")
+    if not pattern:
+        return [line]
+
+    prefix = "!" if negated else ""
+    if "/" in pattern.rstrip("/"):
+        return [f"{prefix}{base}/{pattern}"]
+    return [f"{prefix}{base}/{pattern}", f"{prefix}{base}/**/{pattern}"]
+
+
+def _iter_candidate_files(
+    root: Path, ignore_spec: GitIgnoreSpec
+) -> tuple[list[Path], list[OmittedMaterial]]:
     files: list[Path] = []
+    omissions: list[OmittedMaterial] = []
     for current_root, dir_names, file_names in os.walk(root):
         current_path = Path(current_root)
-        dir_names[:] = [
-            name
-            for name in sorted(dir_names)
-            if not _is_ignored(current_path / name, root, ignore_spec, is_dir=True)
-        ]
+        kept_dir_names: list[str] = []
+        for name in sorted(dir_names):
+            path = current_path / name
+            if _is_ignored(path, root, ignore_spec, is_dir=True):
+                continue
+            if path.is_symlink():
+                omissions.append(
+                    OmittedMaterial(
+                        reason="Symlink skipped",
+                        source_path=path.relative_to(root).as_posix(),
+                    )
+                )
+                continue
+            kept_dir_names.append(name)
+        dir_names[:] = kept_dir_names
         for file_name in sorted(file_names):
             path = current_path / file_name
-            if not _is_ignored(path, root, ignore_spec, is_dir=False):
-                files.append(path)
-    return files
+            if _is_ignored(path, root, ignore_spec, is_dir=False):
+                continue
+            if path.is_symlink():
+                omissions.append(
+                    OmittedMaterial(
+                        reason="Symlink skipped",
+                        source_path=path.relative_to(root).as_posix(),
+                    )
+                )
+                continue
+            files.append(path)
+    return files, omissions
 
 
 def _is_ignored(path: Path, root: Path, ignore_spec: GitIgnoreSpec, *, is_dir: bool) -> bool:
@@ -319,6 +414,39 @@ def _git_commit(root: Path) -> str | None:
     except (OSError, subprocess.CalledProcessError):
         return None
     return result.stdout.strip() or None
+
+
+def _is_binary_content(content: bytes) -> bool:
+    return b"\0" in content[:8192]
+
+
+def _detect_secret(content: str) -> str | None:
+    for line_number, line in enumerate(content.splitlines(), start=1):
+        for label, pattern in _SECRET_PATTERNS:
+            match = pattern.search(line)
+            if match is None:
+                continue
+            if _looks_like_placeholder(match.group(0)):
+                continue
+            return f"{label} at line {line_number}"
+    return None
+
+
+def _looks_like_placeholder(value: str) -> bool:
+    lowered = value.lower()
+    placeholders = (
+        "<",
+        ">",
+        "example",
+        "placeholder",
+        "changeme",
+        "replace",
+        "your_",
+        "your-",
+        "xxxxx",
+        "dummy",
+    )
+    return any(placeholder in lowered for placeholder in placeholders)
 
 
 def _line_count(content: str) -> int | None:

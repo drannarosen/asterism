@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from asterism import PackOptions, pack_directory
 from asterism.retrieve import RetrievalStore
 
@@ -121,6 +123,91 @@ def test_pack_directory_profile_can_ignore_generated_outputs(tmp_path: Path) -> 
 
     assert pack.profile == "review"
     assert [item.provenance.path for item in pack.items] == ["notes.md"]
+
+
+def test_pack_directory_respects_nested_gitignore(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    docs = root / "docs"
+    docs.mkdir(parents=True)
+    (docs / ".gitignore").write_text("ignored.md\nnested/\n", encoding="utf-8")
+    (docs / "keep.md").write_text("units: cgs\n", encoding="utf-8")
+    (docs / "ignored.md").write_text("do not pack\n", encoding="utf-8")
+    nested = docs / "nested"
+    nested.mkdir()
+    (nested / "also-ignored.md").write_text("do not pack\n", encoding="utf-8")
+
+    pack = pack_directory(root, options=PackOptions(store_path=root / ".asterism" / "store"))
+
+    assert [item.provenance.path for item in pack.items] == ["docs/.gitignore", "docs/keep.md"]
+
+
+def test_pack_directory_records_large_file_omission(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "large.txt").write_text("too large\n", encoding="utf-8")
+
+    pack = pack_directory(
+        root,
+        options=PackOptions(store_path=root / ".asterism" / "store", max_file_bytes=4),
+    )
+
+    assert pack.items == []
+    assert len(pack.omitted_material) == 1
+    assert pack.omitted_material[0].source_path == "large.txt"
+    assert pack.omitted_material[0].reason == "File exceeds max_file_bytes"
+
+
+def test_pack_directory_records_binary_file_omission(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "data.bin").write_bytes(b"abc\x00def")
+
+    pack = pack_directory(root, options=PackOptions(store_path=root / ".asterism" / "store"))
+
+    assert pack.items == []
+    assert len(pack.omitted_material) == 1
+    assert pack.omitted_material[0].source_path == "data.bin"
+    assert pack.omitted_material[0].reason == "Binary file"
+
+
+def test_pack_directory_records_symlink_omission(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    target = root / "target.md"
+    target.write_text("api contract\n", encoding="utf-8")
+    link = root / "linked.md"
+    try:
+        link.symlink_to(target)
+    except OSError as exc:
+        pytest.skip(f"symlink creation is unavailable: {exc}")
+
+    pack = pack_directory(root, options=PackOptions(store_path=root / ".asterism" / "store"))
+
+    assert [item.provenance.path for item in pack.items] == ["target.md"]
+    assert len(pack.omitted_material) == 1
+    assert pack.omitted_material[0].source_path == "linked.md"
+    assert pack.omitted_material[0].reason == "Symlink skipped"
+
+
+def test_pack_directory_omits_secret_looking_content_without_storing_it(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    store_path = root / ".asterism" / "store"
+    secret_content = "OPENAI_API_KEY=sk-proj-" + ("a" * 32) + "\n"
+    (root / ".env").write_text(secret_content, encoding="utf-8")
+    (root / "notes.md").write_text("api contract\n", encoding="utf-8")
+
+    pack = pack_directory(root, options=PackOptions(store_path=store_path))
+
+    assert [item.provenance.path for item in pack.items] == ["notes.md"]
+    assert len(pack.omitted_material) == 1
+    assert pack.omitted_material[0].source_path == ".env"
+    assert pack.omitted_material[0].reason.startswith("Secret-looking content omitted")
+    assert "sk-proj" not in pack.to_canonical_json()
+
+    store_blobs = list((store_path / "blobs" / "sha256").glob("*"))
+    assert len(store_blobs) == 1
+    assert store_blobs[0].read_text(encoding="utf-8") == "api contract\n"
 
 
 def test_pack_directory_rejects_unknown_profile(tmp_path: Path) -> None:

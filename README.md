@@ -84,6 +84,10 @@ It marks lines that look like equations, units, priors, likelihoods, tolerances,
 API contracts, citations, or failures, but the hard v0.1 guarantee is exact
 retrieval from content-addressed storage.
 
+For public-package safety, files that are too large, binary or non-UTF-8,
+symlinks, and secret-looking text files are omitted explicitly rather than
+stored. Secret-looking content is not written to the retrieval store.
+
 The current wire format is documented in
 [docs/evidencepack-v1alpha1.md](docs/evidencepack-v1alpha1.md), with a canonical
 example at [examples/evidencepack-v1alpha1.json](examples/evidencepack-v1alpha1.json).
