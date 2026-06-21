@@ -1,5 +1,7 @@
 # Asterism MVP Implementation Plan
 
+**Execution status:** implemented in branch `mvp-skeleton` during the first build session.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Build the first public Python package skeleton for Asterism with deterministic EvidencePack creation,

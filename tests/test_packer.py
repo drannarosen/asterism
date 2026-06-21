@@ -26,6 +26,7 @@ def test_pack_directory_skips_ignored_paths(tmp_path) -> None:
     root = tmp_path / "project"
     root.mkdir()
     (root / "keep.md").write_text("likelihood: gaussian\n", encoding="utf-8")
+    (root / ".git").write_text("gitdir: ../.git/worktrees/project\n", encoding="utf-8")
     hidden_store = root / ".asterism"
     hidden_store.mkdir()
     (hidden_store / "generated.md").write_text("skip me\n", encoding="utf-8")

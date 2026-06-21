@@ -15,6 +15,7 @@ from asterism.provenance import FileProvenance
 from asterism.retrieve import RetrievalStore, sha256_digest
 
 DEFAULT_IGNORE_PATTERNS = (
+    ".git",
     ".git/",
     ".asterism/",
     ".venv/",
