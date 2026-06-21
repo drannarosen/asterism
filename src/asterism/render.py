@@ -32,11 +32,14 @@ def render_markdown(pack: EvidencePack) -> str:
                 f"### {item.title}",
                 "",
                 f"- Kind: `{item.kind}`",
+                f"- Granularity: `{provenance.granularity}`",
                 f"- Path: `{provenance.path}`",
                 f"- Lines: {line_span}",
+                f"- Bytes: {_byte_span(provenance.byte_start, provenance.byte_end)}",
+                f"- Chunk: {provenance.chunk_index + 1}/{provenance.chunk_count}",
                 f"- SHA-256: `{provenance.sha256}`",
                 f"- Retrieval key: `{provenance.retrieval_key}`",
-                f"- Bytes: {provenance.byte_length}",
+                f"- Stored bytes: {provenance.byte_length}",
                 f"- Characters: {provenance.char_length}",
                 f"- Summary: {item.summary}",
             ]
@@ -68,3 +71,9 @@ def _line_span(line_start: int, line_end: int | None) -> str:
     if line_start == line_end:
         return str(line_start)
     return f"{line_start}-{line_end}"
+
+
+def _byte_span(byte_start: int, byte_end: int | None) -> str:
+    if byte_end is None:
+        return f"{byte_start}-unknown"
+    return f"{byte_start}-{byte_end} (exclusive)"

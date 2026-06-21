@@ -22,6 +22,55 @@ def test_pack_directory_records_file_provenance_and_retrieval(tmp_path) -> None:
     assert store.retrieve_text(item.provenance.retrieval_key) == content
 
 
+def test_pack_directory_chunks_large_text_files_by_line_span(tmp_path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    content = "line 1\nline 2\nline 3\nline 4\nline 5\n"
+    (root / "notes.md").write_text(content, encoding="utf-8")
+
+    pack = pack_directory(
+        root,
+        options=PackOptions(store_path=root / ".asterism" / "store", chunk_line_count=2),
+    )
+
+    assert [item.provenance.line_start for item in pack.items] == [1, 3, 5]
+    assert [item.provenance.line_end for item in pack.items] == [2, 4, 5]
+    assert [item.provenance.byte_start for item in pack.items] == [0, 14, 28]
+    assert [item.provenance.byte_end for item in pack.items] == [14, 28, 35]
+    assert [item.provenance.chunk_index for item in pack.items] == [0, 1, 2]
+    assert [item.provenance.chunk_count for item in pack.items] == [3, 3, 3]
+    assert all(item.provenance.granularity == "line_chunk" for item in pack.items)
+
+    store = RetrievalStore(root / ".asterism" / "store")
+    assert store.retrieve_text(pack.items[0].provenance.retrieval_key) == "line 1\nline 2\n"
+    assert store.retrieve_text(pack.items[1].provenance.retrieval_key) == "line 3\nline 4\n"
+    assert store.retrieve_text(pack.items[2].provenance.retrieval_key) == "line 5\n"
+
+
+def test_chunked_invariant_markers_keep_source_line_numbers(tmp_path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    content = "intro\ncontext\nEquation: E = mc^2\nunits: cgs\n"
+    (root / "notes.md").write_text(content, encoding="utf-8")
+
+    pack = pack_directory(
+        root,
+        options=PackOptions(store_path=root / ".asterism" / "store", chunk_line_count=2),
+    )
+
+    equation_markers = [
+        marker
+        for item in pack.items
+        for marker in item.invariants
+        if marker.kind == "equation"
+    ]
+    units_markers = [
+        marker for item in pack.items for marker in item.invariants if marker.kind == "units"
+    ]
+    assert [marker.line_start for marker in equation_markers] == [3]
+    assert [marker.line_start for marker in units_markers] == [4]
+
+
 def test_pack_directory_skips_ignored_paths(tmp_path) -> None:
     root = tmp_path / "project"
     root.mkdir()

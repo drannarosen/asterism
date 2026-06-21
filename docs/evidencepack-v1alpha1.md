@@ -56,15 +56,22 @@ Each `provenance` object has:
 | Field | Type | Required | Meaning |
 |:--|:--|:--|:--|
 | `path` | relative POSIX path | yes | Path relative to the packed source root. Absolute paths are invalid. |
+| `granularity` | string | yes | `file` for a whole file or `line_chunk` for a deterministic line chunk. |
 | `sha256` | lowercase hex string | yes | SHA-256 digest of the exact stored bytes. |
 | `retrieval_key` | string | yes | Must be `sha256:<sha256>`. |
+| `chunk_index` | integer | yes | Zero-indexed chunk position for this source path. |
+| `chunk_count` | integer | yes | Total chunks emitted for this source path. |
 | `line_start` | integer | yes | First source line represented by this item, 1-indexed. |
 | `line_end` | integer or null | yes | Last source line represented by this item. Must be >= `line_start` when present. |
+| `byte_start` | integer | yes | First source byte offset represented by this item, zero-indexed. |
+| `byte_end` | integer or null | yes | Exclusive byte end offset represented by this item. Must be >= `byte_start` when present. |
 | `byte_length` | integer | yes | Length of exact stored bytes. |
 | `char_length` | integer | yes | Length of decoded text in Python characters. |
 | `git_commit` | string or null | yes | Lowercase 40-character commit SHA when available. |
 
 The `sha256` field is computed from stored bytes, not normalized text. `retrieval_key` must use the same digest.
+For `file` granularity, `chunk_index` must be `0` and `chunk_count` must be `1`. For `line_chunk` granularity,
+`chunk_index` must be less than `chunk_count`.
 
 ## Invariant Markers
 

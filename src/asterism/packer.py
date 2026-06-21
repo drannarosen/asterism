@@ -7,6 +7,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 from pathspec.gitignore import GitIgnoreSpec
 
@@ -43,6 +44,7 @@ class PackOptions:
     store_path: Path | str | None = None
     include_git: bool = True
     max_file_bytes: int = 1_000_000
+    chunk_line_count: int = 200
     extra_ignore_patterns: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -91,28 +93,42 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
             )
             continue
 
-        digest = sha256_digest(content_bytes)
-        retrieval_key = store.put_bytes(content_bytes, source_path=relative_path)
-        line_count = _line_count(content)
-        invariants = detect_invariants(content)
-        items.append(
-            EvidenceItem(
-                kind="file",
-                title=relative_path,
-                provenance=FileProvenance(
-                    path=relative_path,
-                    sha256=digest,
-                    retrieval_key=retrieval_key,
-                    line_start=1,
-                    line_end=line_count,
-                    byte_length=len(content_bytes),
-                    char_length=len(content),
-                    git_commit=git_commit,
-                ),
-                summary=_file_summary(line_count, invariants),
-                invariants=invariants,
+        chunks = _line_chunks(content, chunk_line_count=options.chunk_line_count)
+        chunk_count = len(chunks)
+        for chunk_index, chunk in enumerate(chunks):
+            chunk_bytes = chunk.text.encode("utf-8")
+            digest = sha256_digest(chunk_bytes)
+            retrieval_key = store.put_bytes(chunk_bytes, source_path=relative_path)
+            invariants = detect_invariants(chunk.text, line_offset=chunk.line_start - 1)
+            granularity = "file" if chunk_count == 1 else "line_chunk"
+            items.append(
+                EvidenceItem(
+                    kind="file" if granularity == "file" else "file_chunk",
+                    title=_item_title(relative_path, chunk.line_start, chunk.line_end, chunk_count),
+                    provenance=FileProvenance(
+                        path=relative_path,
+                        granularity=granularity,
+                        sha256=digest,
+                        retrieval_key=retrieval_key,
+                        chunk_index=chunk_index,
+                        chunk_count=chunk_count,
+                        line_start=chunk.line_start,
+                        line_end=chunk.line_end,
+                        byte_start=chunk.byte_start,
+                        byte_end=chunk.byte_end,
+                        byte_length=len(chunk_bytes),
+                        char_length=len(chunk.text),
+                        git_commit=git_commit,
+                    ),
+                    summary=_file_summary(
+                        chunk.line_count,
+                        invariants,
+                        chunk_index=chunk_index,
+                        chunk_count=chunk_count,
+                    ),
+                    invariants=invariants,
+                )
             )
-        )
 
     pack_id = _pack_id(source_root, items)
     return EvidencePack(
@@ -124,7 +140,7 @@ def pack_directory(root: Path | str, *, options: PackOptions | None = None) -> E
     )
 
 
-def detect_invariants(content: str) -> list[InvariantMarker]:
+def detect_invariants(content: str, *, line_offset: int = 0) -> list[InvariantMarker]:
     """Return deterministic markers for likely scientific correctness invariants."""
     markers: list[InvariantMarker] = []
     for line_number, line in enumerate(content.splitlines(), start=1):
@@ -133,7 +149,9 @@ def detect_invariants(content: str) -> list[InvariantMarker]:
             continue
         lowered = stripped.lower()
         for kind in _invariant_kinds(stripped, lowered):
-            markers.append(InvariantMarker(kind=kind, text=stripped, line_start=line_number))
+            markers.append(
+                InvariantMarker(kind=kind, text=stripped, line_start=line_offset + line_number)
+            )
     return markers
 
 
@@ -209,15 +227,86 @@ def _line_count(content: str) -> int | None:
     return len(content.splitlines()) or 1
 
 
-def _file_summary(line_count: int | None, invariants: list[InvariantMarker]) -> str:
+class _LineChunk(NamedTuple):
+    text: str
+    line_start: int
+    line_end: int | None
+    byte_start: int
+    byte_end: int
+
+    @property
+    def line_count(self) -> int | None:
+        if self.line_end is None:
+            return None
+        return self.line_end - self.line_start + 1
+
+
+def _line_chunks(content: str, *, chunk_line_count: int) -> list[_LineChunk]:
+    if chunk_line_count < 1:
+        raise ValueError("chunk_line_count must be at least 1")
+    lines = content.splitlines(keepends=True)
+    if not lines:
+        return [_LineChunk(text="", line_start=1, line_end=None, byte_start=0, byte_end=0)]
+    if len(lines) <= chunk_line_count:
+        return [
+            _LineChunk(
+                text=content,
+                line_start=1,
+                line_end=len(lines),
+                byte_start=0,
+                byte_end=len(content.encode("utf-8")),
+            )
+        ]
+
+    chunks: list[_LineChunk] = []
+    byte_start = 0
+    for start_index in range(0, len(lines), chunk_line_count):
+        chunk_lines = lines[start_index : start_index + chunk_line_count]
+        chunk_text = "".join(chunk_lines)
+        chunk_bytes = chunk_text.encode("utf-8")
+        byte_end = byte_start + len(chunk_bytes)
+        chunks.append(
+            _LineChunk(
+                text=chunk_text,
+                line_start=start_index + 1,
+                line_end=start_index + len(chunk_lines),
+                byte_start=byte_start,
+                byte_end=byte_end,
+            )
+        )
+        byte_start = byte_end
+    return chunks
+
+
+def _file_summary(
+    line_count: int | None,
+    invariants: list[InvariantMarker],
+    *,
+    chunk_index: int = 0,
+    chunk_count: int = 1,
+) -> str:
     line_label = "0 lines" if line_count is None else f"{line_count} lines"
     marker_label = f"{len(invariants)} invariant markers"
-    return f"Stored exact text file with {line_label} and {marker_label}."
+    if chunk_count == 1:
+        return f"Stored exact text file with {line_label} and {marker_label}."
+    return (
+        f"Stored exact text chunk {chunk_index + 1}/{chunk_count} "
+        f"with {line_label} and {marker_label}."
+    )
+
+
+def _item_title(relative_path: str, line_start: int, line_end: int | None, chunk_count: int) -> str:
+    if chunk_count == 1:
+        return relative_path
+    if line_end is None:
+        return f"{relative_path}#L{line_start}"
+    return f"{relative_path}#L{line_start}-L{line_end}"
 
 
 def _pack_id(root: Path, items: list[EvidenceItem]) -> str:
     fingerprint_input = "\n".join(
-        f"{item.provenance.path}:{item.provenance.sha256}" for item in items
+        f"{item.provenance.path}:{item.provenance.chunk_index}:{item.provenance.sha256}"
+        for item in items
     ).encode("utf-8")
     fingerprint = sha256_digest(fingerprint_input)[:12]
     name = root.name or "root"

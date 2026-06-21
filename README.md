@@ -59,6 +59,10 @@ The MVP focuses on deterministic local directory packing, file provenance,
 content hashing, exact retrieval, and Markdown/JSON output. It intentionally
 does not include ML compression or Rust acceleration yet.
 
+Files can be represented as whole-file records or deterministic line chunks.
+Each record carries line spans, byte spans, chunk index/count, SHA-256 digest,
+and an exact retrieval key.
+
 The scientific invariant detector is deliberately conservative and deterministic.
 It marks lines that look like equations, units, priors, likelihoods, tolerances,
 API contracts, citations, or failures, but the hard v0.1 guarantee is exact

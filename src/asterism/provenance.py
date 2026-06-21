@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import PurePosixPath
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -31,10 +32,18 @@ class FileProvenance(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     path: str = Field(description="Path relative to the packed source root.")
+    granularity: Literal["file", "line_chunk"] = Field(
+        default="file",
+        description="Whether this record represents a whole file or a deterministic line chunk.",
+    )
     sha256: str = Field(description="SHA-256 digest for the exact stored content.")
     retrieval_key: str = Field(description="Content-addressed key for exact retrieval.")
+    chunk_index: int = Field(default=0, ge=0)
+    chunk_count: int = Field(default=1, ge=1)
     line_start: int = Field(default=1, ge=1)
     line_end: int | None = Field(default=None, ge=1)
+    byte_start: int = Field(default=0, ge=0)
+    byte_end: int | None = Field(default=None, ge=0)
     byte_length: int = Field(default=0, ge=0)
     char_length: int = Field(default=0, ge=0)
     git_commit: str | None = Field(
@@ -77,4 +86,10 @@ class FileProvenance(BaseModel):
             raise ValueError("retrieval_key digest must match sha256")
         if self.line_end is not None and self.line_end < self.line_start:
             raise ValueError("line_end must be greater than or equal to line_start")
+        if self.byte_end is not None and self.byte_end < self.byte_start:
+            raise ValueError("byte_end must be greater than or equal to byte_start")
+        if self.chunk_index >= self.chunk_count:
+            raise ValueError("chunk_index must be less than chunk_count")
+        if self.granularity == "file" and (self.chunk_index != 0 or self.chunk_count != 1):
+            raise ValueError("file granularity must use chunk_index=0 and chunk_count=1")
         return self

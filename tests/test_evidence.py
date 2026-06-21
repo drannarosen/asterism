@@ -75,6 +75,41 @@ def test_evidence_pack_rejects_invalid_line_spans() -> None:
         )
 
 
+def test_evidence_pack_rejects_invalid_byte_spans() -> None:
+    with pytest.raises(ValidationError):
+        FileProvenance(
+            path="notes.txt",
+            sha256=EXAMPLE_DIGEST,
+            retrieval_key=f"sha256:{EXAMPLE_DIGEST}",
+            byte_start=10,
+            byte_end=9,
+        )
+
+
+def test_evidence_pack_rejects_invalid_chunk_index() -> None:
+    with pytest.raises(ValidationError):
+        FileProvenance(
+            path="notes.txt",
+            sha256=EXAMPLE_DIGEST,
+            retrieval_key=f"sha256:{EXAMPLE_DIGEST}",
+            granularity="line_chunk",
+            chunk_index=2,
+            chunk_count=2,
+        )
+
+
+def test_file_granularity_requires_single_whole_file_chunk() -> None:
+    with pytest.raises(ValidationError):
+        FileProvenance(
+            path="notes.txt",
+            sha256=EXAMPLE_DIGEST,
+            retrieval_key=f"sha256:{EXAMPLE_DIGEST}",
+            granularity="file",
+            chunk_index=0,
+            chunk_count=2,
+        )
+
+
 def test_omitted_material_rejects_invalid_retrieval_key() -> None:
     with pytest.raises(ValidationError):
         OmittedMaterial(reason="Skipped", retrieval_key="sha1:abc", source_path="notes.txt")
