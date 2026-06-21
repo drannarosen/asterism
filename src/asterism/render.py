@@ -2,13 +2,30 @@
 
 from __future__ import annotations
 
+from collections import Counter
+
 from asterism.evidence import EvidencePack
 
 
 def render_markdown(pack: EvidencePack) -> str:
-    """Render an EvidencePack as compact Markdown."""
+    """Render an EvidencePack as an agent-oriented handoff document."""
     lines: list[str] = [
         f"# EvidencePack: {pack.id}",
+        "",
+        "## Agent Handoff",
+        "",
+        "- Treat the JSON EvidencePack as canonical; this Markdown is a readable handoff view.",
+        (
+            "- Use retrieval keys to recover exact source bytes before quoting or editing "
+            "source content."
+        ),
+        (
+            "- Preserve source paths, line spans, byte spans, SHA-256 digests, and git "
+            "commits when citing evidence."
+        ),
+        "- Treat omitted material as unavailable unless a retrieval key is present.",
+        "",
+        "## Pack Summary",
         "",
         f"- Schema: `{pack.schema_version}`",
         f"- Profile: `{pack.profile}`",
@@ -16,9 +33,34 @@ def render_markdown(pack: EvidencePack) -> str:
         f"- Audit status: `{pack.audit_status}`",
         f"- Items: {len(pack.items)}",
         f"- Retrieval keys: {len(pack.retrieval_keys)}",
+        f"- Omitted material: {len(pack.omitted_material)}",
     ]
     if pack.task_intent:
         lines.append(f"- Task intent: {pack.task_intent}")
+
+    invariant_counts = _invariant_counts(pack)
+    lines.extend(["", "## Invariant Index"])
+    if not invariant_counts:
+        lines.append("")
+        lines.append("_No invariant markers recorded._")
+    else:
+        lines.append("")
+        for kind, count in sorted(invariant_counts.items()):
+            lines.append(f"- `{kind}`: {count}")
+
+    lines.extend(["", "## Retrieval Commands"])
+    if not pack.items:
+        lines.append("")
+        lines.append("_No retrieval keys recorded._")
+    else:
+        lines.append("")
+        lines.append("Use the retrieval store produced with this pack.")
+        lines.append("Each evidence item below includes its exact retrieval command.")
+        lines.append("With the default store path:")
+        lines.append("")
+        lines.append("```bash")
+        lines.append("asterism retrieve <retrieval-key> --store .asterism/store")
+        lines.append("```")
 
     lines.extend(["", "## Evidence Items"])
     if not pack.items:
@@ -40,6 +82,10 @@ def render_markdown(pack: EvidencePack) -> str:
                 f"- Chunk: {provenance.chunk_index + 1}/{provenance.chunk_count}",
                 f"- SHA-256: `{provenance.sha256}`",
                 f"- Retrieval key: `{provenance.retrieval_key}`",
+                (
+                    f"- Retrieve: `asterism retrieve {provenance.retrieval_key} "
+                    "--store .asterism/store`"
+                ),
                 f"- Stored bytes: {provenance.byte_length}",
                 f"- Characters: {provenance.char_length}",
                 f"- Summary: {item.summary}",
@@ -58,6 +104,14 @@ def render_markdown(pack: EvidencePack) -> str:
     if not pack.omitted_material:
         lines.append("")
         lines.append("_No omitted material recorded._")
+    else:
+        omission_counts = _omission_counts(pack)
+        lines.append("")
+        lines.append("Omission summary:")
+        for reason, count in sorted(omission_counts.items()):
+            lines.append(f"- {reason}: {count}")
+        lines.append("")
+        lines.append("Omission records:")
     for material in pack.omitted_material:
         source = f" `{material.source_path}`" if material.source_path else ""
         retrieval = f" Retrieval key: `{material.retrieval_key}`." if material.retrieval_key else ""
@@ -78,3 +132,11 @@ def _byte_span(byte_start: int, byte_end: int | None) -> str:
     if byte_end is None:
         return f"{byte_start}-unknown"
     return f"{byte_start}-{byte_end} (exclusive)"
+
+
+def _invariant_counts(pack: EvidencePack) -> Counter[str]:
+    return Counter(marker.kind for item in pack.items for marker in item.invariants)
+
+
+def _omission_counts(pack: EvidencePack) -> Counter[str]:
+    return Counter(material.reason for material in pack.omitted_material)

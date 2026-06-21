@@ -91,6 +91,9 @@ stored. Secret-looking content is not written to the retrieval store.
 The current wire format is documented in
 [docs/evidencepack-v1alpha1.md](docs/evidencepack-v1alpha1.md), with a canonical
 example at [examples/evidencepack-v1alpha1.json](examples/evidencepack-v1alpha1.json).
+JSON output is the canonical machine-readable record; Markdown output is an
+agent handoff view with retrieval commands, invariant counts, and omission
+summaries.
 
 ## Public Repository Target
 
